@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.cache
+.local
+attached_assets
+bot-data
+**/.env
+*.log
