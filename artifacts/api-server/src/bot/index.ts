@@ -9,6 +9,7 @@ import {
   ButtonInteraction,
   StringSelectMenuInteraction,
   ModalSubmitInteraction,
+  EmbedBuilder,
 } from "discord.js";
 import { logger } from "../lib/logger.js";
 
@@ -31,13 +32,41 @@ import {
   handleTicketConfModal,
 } from "./commands/ticket.js";
 import { embedCommands, handleEmbedCommand } from "./commands/embed.js";
+import {
+  confCommands,
+  handleConfCommand,
+  handleConfSelectCommand,
+  handleConfModal,
+  hasCommandPermission,
+} from "./commands/conf.js";
 
 const allCommands = [
   ...idCommands,
   ...whitelistCommands,
   ...ticketCommands,
   ...embedCommands,
+  ...confCommands,
 ];
+
+// ── Permission denied reply ───────────────────────────────────────────────────
+
+async function denyPermission(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#E74C3C")
+        .setTitle("🚫 Sem Permissão")
+        .setDescription(
+          `Você não tem o cargo necessário para usar **/${interaction.commandName}**.\n` +
+          `Um administrador pode ajustar as permissões com \`/conf\`.`
+        )
+        .setTimestamp(),
+    ],
+    ephemeral: true,
+  });
+}
+
+// ── Bot startup ───────────────────────────────────────────────────────────────
 
 export async function startBot(): Promise<void> {
   const token = process.env["DISCORD_TOKEN"];
@@ -62,7 +91,6 @@ export async function startBot(): Promise<void> {
     logger.info({ tag: c.user.tag }, "Bot Discord conectado");
 
     const rest = new REST({ version: "10" }).setToken(token);
-
     try {
       await rest.put(Routes.applicationCommands(c.user.id), {
         body: allCommands,
@@ -77,10 +105,22 @@ export async function startBot(): Promise<void> {
 
   client.on("interactionCreate", async (interaction: Interaction) => {
     try {
-      // ── Slash commands ──────────────────────────────────────────────────
+      // ── Slash commands ────────────────────────────────────────────────────
       if (interaction.isChatInputCommand()) {
         const i = interaction as ChatInputCommandInteraction;
         const name = i.commandName;
+
+        // /conf is always accessible to admins (already gated by Discord perms)
+        if (name === "conf") {
+          await handleConfCommand(i);
+          return;
+        }
+
+        // Check role permission for all other commands
+        if (!hasCommandPermission(i, name)) {
+          await denyPermission(i);
+          return;
+        }
 
         if (["pedir-id", "ver-id", "definir-id-inicial"].includes(name)) {
           await handleIdCommand(i);
@@ -101,7 +141,7 @@ export async function startBot(): Promise<void> {
         return;
       }
 
-      // ── Buttons ─────────────────────────────────────────────────────────
+      // ── Buttons ───────────────────────────────────────────────────────────
       if (interaction.isButton()) {
         const i = interaction as ButtonInteraction;
         const id = i.customId;
@@ -125,11 +165,15 @@ export async function startBot(): Promise<void> {
         return;
       }
 
-      // ── Select menus ─────────────────────────────────────────────────────
+      // ── Select menus ──────────────────────────────────────────────────────
       if (interaction.isStringSelectMenu()) {
         const i = interaction as StringSelectMenuInteraction;
         const id = i.customId;
 
+        if (id === "conf_select_command") {
+          await handleConfSelectCommand(i);
+          return;
+        }
         if (id === "wl_conf_select") {
           await handleWhitelistConfSelect(i);
           return;
@@ -141,19 +185,20 @@ export async function startBot(): Promise<void> {
         return;
       }
 
-      // ── Modals ───────────────────────────────────────────────────────────
+      // ── Modals ────────────────────────────────────────────────────────────
       if (interaction.isModalSubmit()) {
         const i = interaction as ModalSubmitInteraction;
         const id = i.customId;
 
+        if (id.startsWith("conf_modal_")) {
+          await handleConfModal(i);
+          return;
+        }
         if (id === "wl_modal") {
           await handleWhitelistModal(i);
           return;
         }
-        if (
-          id === "wl_conf_perguntas_modal" ||
-          id.startsWith("wl_conf_modal_")
-        ) {
+        if (id === "wl_conf_perguntas_modal" || id.startsWith("wl_conf_modal_")) {
           await handleWhitelistConfModal(i);
           return;
         }
@@ -166,11 +211,15 @@ export async function startBot(): Promise<void> {
     } catch (err) {
       logger.error({ err }, "Erro ao processar interação");
       try {
-        const reply = { content: "❌ Ocorreu um erro ao processar esse comando.", ephemeral: true };
-        if ((interaction as ButtonInteraction).replied || (interaction as ButtonInteraction).deferred) {
-          await (interaction as ButtonInteraction).followUp(reply);
+        const reply = {
+          content: "❌ Ocorreu um erro ao processar esse comando.",
+          ephemeral: true,
+        };
+        const anyI = interaction as ButtonInteraction;
+        if (anyI.replied || anyI.deferred) {
+          await anyI.followUp(reply);
         } else {
-          await (interaction as ButtonInteraction).reply(reply);
+          await anyI.reply(reply);
         }
       } catch {
         // ignore

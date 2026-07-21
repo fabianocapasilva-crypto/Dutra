@@ -1,45 +1,46 @@
-# [Project name]
+# Bot Discord
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Bot do Discord com sistema de ID, Whitelist, Ticket, Embed e controle de permissões por cargo.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/api-server run dev` — inicia o servidor e o bot (porta 5000)
+- Variável obrigatória: `DISCORD_TOKEN` — token do bot no Discord Developer Portal
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- API: Express 5 + discord.js v14
+- Build: esbuild (ESM bundle)
+- Config persistida: arquivos JSON em `bot-data/` na raiz do projeto
 
-## Where things live
+## Comandos do Bot
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+### 🪪 ID
+- `/pedir-id` — registra um ID único para o usuário
+- `/ver-id [usuario]` — mostra o ID do usuário (ou de outro)
+- `/definir-id-inicial <numero>` — define o número de partida dos IDs (admin, só antes do primeiro ID)
 
-## Architecture decisions
+### 📋 Whitelist
+- `/whitelist` — envia o painel de whitelist no canal
+- `/whitelist-conf` — painel de configuração (admin): nome, URL, thumbnail, perguntas (até 5), cor, cargo de aprovação, canal de aprovação
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+### 🎫 Ticket
+- `/ticket` — envia o painel de tickets no canal
+- `/ticket-configurar` — painel de configuração (admin): nome, descrição, autor, cor, URL, thumbnail, tipos de ticket, canal de logs
 
-## Product
+### 🎨 Embed
+- `/embed <titulo> <descricao>` — cria um embed personalizado com cor, URL, thumbnail, imagem, rodapé, autor e canal de destino
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+### ⚙️ Permissões
+- `/conf` — define qual cargo pode usar cada comando. Se não configurado, todos podem usar.
+
+## Arquitetura
+
+- Bot integrado ao api-server (`artifacts/api-server/src/bot/`)
+- Dados salvos em `bot-data/*.json` (ids, whitelist-config, ticket-config, conf)
+- Slash commands registrados globalmente via REST na inicialização
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Responder em português
